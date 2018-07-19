@@ -1,0 +1,39 @@
+<?php
+
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Database\Migrations\Migration;
+
+class Create{{tableMessagesClassName}}Table extends Migration
+{
+    /**
+     * Run the migrations.
+     *
+     * @return void
+     */
+    public function up()
+    {
+        Schema::create('{{tableMessages}}', function (Blueprint $table) {
+            $table->bigIncrements('id')->comment('ID');
+            $table->bigInteger('source_text_id')->nullable()->comment('Source ID (text)');
+            $table->bigInteger('source_grouped_id')->nullable()->comment('Source ID (grouped)');
+            $table->string('locale', 5)->comment('Translation locale');
+            $table->longText('message')->comment('Source string');
+            $table->boolean('review')->default(false)->comment('Need to review translation');
+            $table->timestamp('created_at')->useCurrent()->comment('Created time');
+
+            $table->foreign('source_text_id')->references('id')->on('{{tableSourceText}}')->onDelete('cascade');
+            $table->foreign('source_grouped_id')->references('id')->on('{{tableSourceGrouped}}')->onDelete('cascade');
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     *
+     * @return void
+     */
+    public function down()
+    {
+        Schema::dropIfExists('{{tableMessages}}');
+    }
+}

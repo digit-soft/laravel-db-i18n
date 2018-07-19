@@ -1,0 +1,36 @@
+<?php
+
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Database\Migrations\Migration;
+
+class Create{{tableSourceGroupedClassName}}Table extends Migration
+{
+    /**
+     * Run the migrations.
+     *
+     * @return void
+     */
+    public function up()
+    {
+        Schema::create('{{tableSourceGrouped}}', function (Blueprint $table) {
+            $table->bigIncrements('id')->comment('ID');
+            $table->string('locale', 5)->comment('Source locale');
+            $table->string('source', 255)->comment('Source string');
+            $table->string('namespace', 255)->nullable()->comment('Source namespace');
+            $table->boolean('removed')->default(false)->comment('Source string was removed');
+            $table->timestamp('created_at')->useCurrent()->comment('Created time');
+            $table->timestamp('removed_at')->nullable()->comment('Removed time');
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     *
+     * @return void
+     */
+    public function down()
+    {
+        Schema::dropIfExists('{{tableSourceGrouped}}');
+    }
+}
