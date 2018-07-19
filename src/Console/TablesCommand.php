@@ -24,6 +24,11 @@ class TablesCommand extends Command
     protected $description = 'Create migrations for the i18n database tables';
 
     /**
+     * @var \Illuminate\Config\Repository Application config
+     */
+    protected $config;
+
+    /**
      * The filesystem instance.
      *
      * @var \Illuminate\Filesystem\Filesystem
@@ -36,38 +41,29 @@ class TablesCommand extends Command
     protected $composer;
 
     /**
-     * Table names
-     *
-     * @var array
-     */
-    protected $tables = [
-        'tableSourceGrouped' => 'translation_source_grouped',
-        'tableSourceText' => 'translation_source_text',
-        'tableMessages' => 'translation_messages',
-    ];
-
-    /**
      * Migration stub names
      *
      * @var array
      */
     protected $migrations = [
-        'tableSourceGrouped' => 'translation_source_grouped',
-        'tableSourceText' => 'translation_source_text',
-        'tableMessages' => 'translation_messages',
+        'source_grouped' => 'translation_source_grouped',
+        'source_text' => 'translation_source_text',
+        'translations' => 'translation_messages',
     ];
 
     /**
      * Create a new queue job table command instance.
      *
+     * @param \Illuminate\Config\Repository $config
      * @param  \Illuminate\Filesystem\Filesystem  $files
      * @param  \Illuminate\Support\Composer    $composer
      * @return void
      */
-    public function __construct(Filesystem $files, Composer $composer)
+    public function __construct($config, Filesystem $files, Composer $composer)
     {
         parent::__construct();
 
+        $this->config = $config;
         $this->files = $files;
         $this->composer = $composer;
     }
@@ -80,27 +76,27 @@ class TablesCommand extends Command
     public function handle()
     {
         $replacements = [[], []];
-        foreach ($this->migrations as $tableKey => $stubName) {
-            $tableClassName = Str::studly($this->tables[$tableKey]);
+        $tables = $this->config->get('localization.tables');
+        foreach ($tables as $key => $table) {
+            $tableClassName = Str::studly($table);
+            $tableKey = lcfirst(Str::studly('table_' . $key));
             $replacements[0][] = '{{' . $tableKey . '}}';
             $replacements[0][] = '{{' . $tableKey . 'ClassName}}';
-            $replacements[1][] = $this->tables[$tableKey];
+            $replacements[1][] = $table;
             $replacements[1][] = $tableClassName;
         }
 
-        foreach ($this->migrations as $tableKey => $stubName) {
+        foreach ($this->migrations as $key => $stubName) {
             $stubPath = __DIR__ . '/stubs/' . $stubName . '.stub';
             $this->replaceMigration(
-                $this->createBaseMigration($this->tables[$tableKey]), $stubPath, $replacements[0], $replacements[1]
+                $this->createBaseMigration($tables[$key]), $stubPath, $replacements[0], $replacements[1]
             );
-            $this->info('Migration for "' . $this->tables[$tableKey] . '" created.');
+            $this->info('Migration for "' . $tables[$key] . '" created.');
             //Sleep 1 second to save the migrations order
             sleep(1);
         }
 
         $this->info('Migrations created successfully!');
-
-        $this->composer->dumpAutoloads();
     }
 
     /**
