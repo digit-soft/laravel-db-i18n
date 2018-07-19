@@ -1,6 +1,6 @@
 {
     "name": "digit-soft/laravel-i18n",
-    "description": "Laravel DB i18n component.",
+    "description": "Laravel i18n component.",
     "keywords": ["laravel i18n db", "i18n", "translation", "db translation"],
     "license": "MIT",
     "authors": [
