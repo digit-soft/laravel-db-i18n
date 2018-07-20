@@ -18,9 +18,9 @@ class Create{{tableSourceGroupedClassName}}Table extends Migration
             $table->string('locale', 5)->comment('Source locale');
             $table->string('source', 255)->comment('Source string');
             $table->string('namespace', 255)->nullable()->comment('Source namespace');
-            $table->boolean('removed')->default(false)->comment('Source string was removed');
+            $table->boolean('missing')->default(false)->comment('String was not found in source files');
             $table->timestamp('created_at')->useCurrent()->comment('Created time');
-            $table->timestamp('removed_at')->nullable()->comment('Removed time');
+            $table->timestamp('missing_at')->nullable()->comment('Marked as missing time');
         });
     }
 

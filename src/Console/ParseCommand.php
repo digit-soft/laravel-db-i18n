@@ -62,7 +62,7 @@ class ParseCommand extends Command
     protected $sources;
 
     /**
-     * Sources with removed mark
+     * Sources with missing mark
      * @var array|null
      */
     protected $sourcesRemoved;
@@ -101,7 +101,7 @@ class ParseCommand extends Command
     {
         parent::configure();
         $this->addOption('delete', null, InputOption::VALUE_OPTIONAL, 'Delete or not missing sources', null);
-        $this->addOption('mark', null, InputOption::VALUE_OPTIONAL, 'Mark missing sources as removed', null);
+        $this->addOption('mark', null, InputOption::VALUE_OPTIONAL, 'Mark sources as missing', null);
         $this->addOption('root', null, InputOption::VALUE_IS_ARRAY | InputOption::VALUE_OPTIONAL, 'Root directory');
     }
 
@@ -226,7 +226,7 @@ class ParseCommand extends Command
             $sourceIds = array_values($sources);
             $this->processMissingSources($sourceIds, $sourceType, $missingAction);
         }
-        $actionWord = $missingAction === static::MISSING_SOURCE_DELETE ? 'deleted' : 'marked as removed';
+        $actionWord = $missingAction === static::MISSING_SOURCE_DELETE ? 'deleted' : 'marked as missing';
         if ($missingCount > 0) {
             $this->info(ucfirst($actionWord) . ' ' . $missingCount . ' sources.');
         } else {
@@ -284,7 +284,7 @@ class ParseCommand extends Command
     }
 
     /**
-     * Get source from DB (removed)
+     * Get source from DB (missing)
      * @return array
      */
     protected function getDbRemovedSources()
@@ -295,12 +295,12 @@ class ParseCommand extends Command
             $rowsGrouped = $this->db
                 ->table($sourceTable)
                 ->whereNull('namespace')
-                ->where('removed', '=', true)
+                ->where('missing', '=', true)
                 ->pluck('id', 'source')
                 ->toArray();
             $rowsText = $this->db
                 ->table($sourceTableText)
-                ->where('removed', '=', true)
+                ->where('missing', '=', true)
                 ->pluck('id', 'source')
                 ->toArray();
             $this->sourcesRemoved = [
@@ -371,16 +371,16 @@ class ParseCommand extends Command
     protected function processExistingSource($source, $sourceType = self::SOURCE_TYPE_GROUPED, &$dbSources)
     {
         unset($dbSources[$sourceType][$source]);
-        $removed = $this->getDbRemovedSources();
-        if (!isset($removed[$sourceType][$source])) {
+        $missing = $this->getDbRemovedSources();
+        if (!isset($missing[$sourceType][$source])) {
             return;
         }
         $this->sourcesToRenew[$sourceType] = isset($this->sourcesToRenew[$sourceType]) ? $this->sourcesToRenew[$sourceType] : [];
-        $this->sourcesToRenew[$sourceType][] = $removed[$sourceType][$source];
+        $this->sourcesToRenew[$sourceType][] = $missing[$sourceType][$source];
     }
 
     /**
-     * Process missing row (delete or mark as removed)
+     * Process missing row (delete or mark as missing)
      * @param int[]  $sourceIds
      * @param string $sourceType
      * @param int    $missingAction
@@ -395,9 +395,9 @@ class ParseCommand extends Command
             return true;
         } elseif ($missingAction === static::MISSING_SOURCE_MARK) {
             $this->db->table($table)
-                ->whereNull('removed_at')
+                ->whereNull('missing_at')
                 ->whereIn('id', $sourceIds)
-                ->update(['removed' => true, 'removed_at' => now()]);
+                ->update(['missing' => true, 'missing_at' => now()]);
             return false;
         }
         return null;
@@ -416,7 +416,7 @@ class ParseCommand extends Command
         $table = $this->getSourceTable($sourceType);
         $this->db->table($table)
             ->whereIn('id', $sourceIds)
-            ->update(['removed' => false, 'removed_at' => null]);
+            ->update(['missing' => false, 'missing_at' => null]);
     }
 
     /**
@@ -434,7 +434,7 @@ class ParseCommand extends Command
     }
 
     /**
-     * Get flag whenever to mark missing sources as removed or not
+     * Get flag whenever to mark missing sources or not
      * @return bool
      */
     protected function getMissingMark()
