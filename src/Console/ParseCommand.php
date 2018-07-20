@@ -7,6 +7,10 @@ use Illuminate\Console\Command;
 use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Input\InputOption;
 
+/**
+ * Command for files parsing
+ * @package DigitSoft\LaravelI18n\Console
+ */
 class ParseCommand extends Command
 {
     const SOURCE_TYPE_GROUPED = 'grouped';
@@ -52,11 +56,25 @@ class ParseCommand extends Command
     protected $db;
 
     /**
+     * Sources from DB
      * @var array|null
      */
     protected $sources;
 
     /**
+     * Sources with removed mark
+     * @var array|null
+     */
+    protected $sourcesRemoved;
+
+    /**
+     * Sources that need to renew (IDs)
+     * @var array|null
+     */
+    protected $sourcesToRenew = [];
+
+    /**
+     * Progress bar for files parsing
      * @var ProgressBar
      */
     protected $progressBarFiles;
@@ -76,6 +94,9 @@ class ParseCommand extends Command
         $this->db = $db;
     }
 
+    /**
+     * @inheritdoc
+     */
     public function configure()
     {
         parent::configure();
@@ -168,25 +189,25 @@ class ParseCommand extends Command
         $dbRows = $this->getDbSources();
         $insertedCount = 0;
         $sourceRowsCount = count($sourceRows);
-        if ($sourceRowsCount === 0) {
-            $this->info('No source string found.');
-            return;
-        }
-        $this->info('Found ' . $sourceRowsCount . ' source strings for translation. Processing...');
-        $progress = $this->output->createProgressBar($sourceRowsCount);
-        foreach ($sourceRows as $sourceRow) {
-            $processResult = $this->processParsedSource((string)$sourceRow['value'], $sourceRow['function'], $dbRows);
-            if ($processResult === true) {
-                ++$insertedCount;
+        if ($sourceRowsCount > 0) {
+            $this->info('Found ' . $sourceRowsCount . ' source strings for translation. Processing...');
+            $progress = $this->output->createProgressBar($sourceRowsCount);
+            foreach ($sourceRows as $sourceRow) {
+                $processResult = $this->processParsedSource((string)$sourceRow['value'], $sourceRow['function'], $dbRows);
+                if ($processResult === true) {
+                    ++$insertedCount;
+                }
+                $progress->advance();
             }
-            $progress->advance();
-        }
-        $progress->finish();
-        $this->output->write("\n");
-        if ($insertedCount > 0) {
-            $this->info('Inserted ' . $insertedCount . ' new sources.');
+            $progress->finish();
+            $this->output->write("\n");
+            if ($insertedCount > 0) {
+                $this->info('Inserted ' . $insertedCount . ' new sources.');
+            } else {
+                $this->info('No new sources found.');
+            }
         } else {
-            $this->info('No new sources found.');
+            $this->info('No source string found.');
         }
         $deleteMissing = $this->getMissingDelete();
         $markMissing = $this->getMissingMark();
@@ -197,6 +218,7 @@ class ParseCommand extends Command
         }
         $missingCount = 0;
         foreach ($dbRows as $sourceType => $sources) {
+            $this->processRenewedSources($sourceType);
             if (empty($sources)) {
                 continue;
             }
@@ -225,7 +247,7 @@ class ParseCommand extends Command
 
         // Source is already in DB
         if (isset($dbRows[$sourceType][$sourceValue])) {
-            unset($dbRows[$sourceType][$sourceValue]);
+            $this->processExistingSource($sourceValue, $sourceType, $dbRows);
             return null;
         // New source
         } else {
@@ -246,12 +268,10 @@ class ParseCommand extends Command
             $rowsGrouped = $this->db
                 ->table($sourceTable)
                 ->whereNull('namespace')
-                ->where('removed', '=', false)
                 ->pluck('id', 'source')
                 ->toArray();
             $rowsText = $this->db
                 ->table($sourceTableText)
-                ->where('removed', '=', false)
                 ->pluck('id', 'source')
                 ->toArray();
             $this->sources = [
@@ -261,6 +281,34 @@ class ParseCommand extends Command
         }
 
         return $this->sources;
+    }
+
+    /**
+     * Get source from DB (removed)
+     * @return array
+     */
+    protected function getDbRemovedSources()
+    {
+        if (!isset($this->sourcesRemoved)) {
+            $sourceTable = $this->getSourceTable(static::SOURCE_TYPE_GROUPED);
+            $sourceTableText = $this->getSourceTable(static::SOURCE_TYPE_TEXT);
+            $rowsGrouped = $this->db
+                ->table($sourceTable)
+                ->whereNull('namespace')
+                ->where('removed', '=', true)
+                ->pluck('id', 'source')
+                ->toArray();
+            $rowsText = $this->db
+                ->table($sourceTableText)
+                ->where('removed', '=', true)
+                ->pluck('id', 'source')
+                ->toArray();
+            $this->sourcesRemoved = [
+                static::SOURCE_TYPE_GROUPED => $rowsGrouped,
+                static::SOURCE_TYPE_TEXT => $rowsText,
+            ];
+        }
+        return $this->sourcesRemoved;
     }
 
     /**
@@ -315,6 +363,23 @@ class ParseCommand extends Command
     }
 
     /**
+     * Process existing source
+     * @param string $source
+     * @param string $sourceType
+     * @param array  $dbSources
+     */
+    protected function processExistingSource($source, $sourceType = self::SOURCE_TYPE_GROUPED, &$dbSources)
+    {
+        unset($dbSources[$sourceType][$source]);
+        $removed = $this->getDbRemovedSources();
+        if (!isset($removed[$sourceType][$source])) {
+            return;
+        }
+        $this->sourcesToRenew[$sourceType] = isset($this->sourcesToRenew[$sourceType]) ? $this->sourcesToRenew[$sourceType] : [];
+        $this->sourcesToRenew[$sourceType][] = $removed[$sourceType][$source];
+    }
+
+    /**
      * Process missing row (delete or mark as removed)
      * @param int[]  $sourceIds
      * @param string $sourceType
@@ -336,6 +401,22 @@ class ParseCommand extends Command
             return false;
         }
         return null;
+    }
+
+    /**
+     * Process sources that need to renew in DB
+     * @param string $sourceType
+     */
+    protected function processRenewedSources($sourceType = self::SOURCE_TYPE_GROUPED)
+    {
+        if (empty($this->sourcesToRenew[$sourceType])) {
+            return;
+        }
+        $sourceIds = $this->sourcesToRenew[$sourceType];
+        $table = $this->getSourceTable($sourceType);
+        $this->db->table($table)
+            ->whereIn('id', $sourceIds)
+            ->update(['removed' => false, 'removed_at' => null]);
     }
 
     /**
