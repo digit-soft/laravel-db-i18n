@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Migrations\Migration;
 
-class Create{{tableMessagesClassName}}Table extends Migration
+class Create{{tableTranslationsClassName}}Table extends Migration
 {
     /**
      * Run the migrations.
@@ -13,7 +13,7 @@ class Create{{tableMessagesClassName}}Table extends Migration
      */
     public function up()
     {
-        Schema::create('{{tableMessages}}', function (Blueprint $table) {
+        Schema::create('{{tableTranslations}}', function (Blueprint $table) {
             $table->bigIncrements('id')->comment('ID');
             $table->bigInteger('source_text_id')->nullable()->comment('Source ID (text)');
             $table->bigInteger('source_grouped_id')->nullable()->comment('Source ID (grouped)');
@@ -34,6 +34,6 @@ class Create{{tableMessagesClassName}}Table extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('{{tableMessages}}');
+        Schema::dropIfExists('{{tableTranslations}}');
     }
 }
