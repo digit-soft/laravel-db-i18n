@@ -17,7 +17,7 @@ class DbLoader implements Loader
      * @param DatabaseManager $db
      * @param string          $sourceLocale
      */
-    public function __construct(DatabaseManager $db, $sourceLocale = 'en')
+    public function __construct(DatabaseManager $db, $sourceLocale)
     {
         $this->db = $db;
         $this->sourceLocale = $sourceLocale;
