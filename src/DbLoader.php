@@ -6,21 +6,38 @@ use Illuminate\Contracts\Translation\Loader;
 use Illuminate\Database\DatabaseManager;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Database loader for translations
+ * @package DigitSoft\LaravelI18n
+ */
 class DbLoader implements Loader
 {
+    /**
+     * Application database manager
+     * @var DatabaseManager
+     */
     protected $db;
-
+    /**
+     * Locale of source files
+     * @var string
+     */
     protected $sourceLocale;
+    /**
+     * Application config
+     * @var \Illuminate\Config\Repository
+     */
+    protected $config;
 
     /**
      * DbLoader constructor.
-     * @param DatabaseManager $db
-     * @param string          $sourceLocale
+     * @param \Illuminate\Database\DatabaseManager $db
+     * @param \Illuminate\Config\Repository        $config
      */
-    public function __construct(DatabaseManager $db, $sourceLocale)
+    public function __construct(DatabaseManager $db, $config)
     {
         $this->db = $db;
-        $this->sourceLocale = $sourceLocale;
+        $this->config = $config;
+        $this->sourceLocale = $config->get('localization.sourceLocale');
     }
 
     /**
@@ -81,9 +98,11 @@ class DbLoader implements Loader
         if ($locale === $this->sourceLocale) {
             return [];
         }
+        $srcTable = $this->config->get('localization.tables.source_text');
+        $msgTable = $this->config->get('localization.tables.translations');
         $query = $this->db
-            ->table('translation_source_text AS src')
-            ->join('translation_messages AS msg', 'src.id', '=', 'msg.source_text_id')
+            ->table($srcTable . ' AS src')
+            ->join($msgTable . ' AS msg', 'src.id', '=', 'msg.source_text_id')
             ->where('msg.locale', '=', $locale);
         if ($sourceStr !== null && $sourceStr != '*') {
             $query->where('src.source', '=', $sourceStr);
@@ -105,9 +124,11 @@ class DbLoader implements Loader
         if ($locale === $this->sourceLocale) {
             return [];
         }
+        $srcTable = $this->config->get('localization.tables.source_text');
+        $msgTable = $this->config->get('localization.tables.translations');
         $query = $this->db
-            ->table('translation_source_grouped AS src')
-            ->join('translation_messages AS msg', 'src.id', '=', 'msg.source_grouped_id')
+            ->table($srcTable . ' AS src')
+            ->join($msgTable . ' AS msg', 'src.id', '=', 'msg.source_grouped_id')
             ->where('src.source', 'LIKE', "${group}.%")
             ->where('msg.locale', '=', $locale);
 

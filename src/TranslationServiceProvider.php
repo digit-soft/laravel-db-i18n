@@ -80,7 +80,7 @@ class TranslationServiceProvider extends ServiceProvider
         $this->app->singleton('translation.loader', function ($app) {
             /** @var Repository $config */
             $config = $app['config'];
-            return new DbLoader($app['db'], $config->get('localization.sourceLocale'));
+            return new DbLoader($app['db'], $config);
         });
     }
 
