@@ -2,7 +2,9 @@
 
 namespace DigitSoft\LaravelI18n;
 
+use DigitSoft\LaravelI18n\Console\ParseCommand;
 use DigitSoft\LaravelI18n\Console\TablesCommand;
+use Illuminate\Config\Repository;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Translation\FileLoader;
@@ -17,12 +19,31 @@ class TranslationServiceProvider extends ServiceProvider
     protected $defer = true;
 
     /**
+     * Bootstrap the application events.
+     *
+     * @return void
+     */
+    public function boot()
+    {
+        $configPath = __DIR__ . '/../config/localization.php';
+        if (function_exists('config_path')) {
+            $publishPath = config_path('localization.php');
+        } else {
+            $publishPath = base_path('config/localization.php');
+        }
+        $this->publishes([$configPath => $publishPath], 'config');
+    }
+
+    /**
      * Register the service provider.
      *
      * @return void
      */
     public function register()
     {
+        $configPath = __DIR__ . '/../config/localization.php';
+        $this->mergeConfigFrom($configPath, 'localization');
+
         $this->registerLoader();
 
         $this->registerTranslator();
@@ -36,11 +57,16 @@ class TranslationServiceProvider extends ServiceProvider
     protected function registerCommands()
     {
         $this->app->singleton('command.translation.tables', function ($app) {
-            return new TablesCommand($app['files'], $app['composer']);
+            return new TablesCommand($app['config'], $app['files'], $app['composer']);
+        });
+
+        $this->app->singleton('command.translation.parse', function ($app) {
+            return new ParseCommand($app['config'], $app['files'], $app['db']);
         });
 
         $this->commands(
-            ['command.translation.tables']
+            'command.translation.tables',
+            'command.translation.parse'
         );
     }
 
@@ -52,7 +78,9 @@ class TranslationServiceProvider extends ServiceProvider
     protected function registerLoader()
     {
         $this->app->singleton('translation.loader', function ($app) {
-            return new DbLoader($app['db']);
+            /** @var Repository $config */
+            $config = $app['config'];
+            return new DbLoader($app['db'], $config->get('localization.sourceLocale'));
         });
     }
 
@@ -86,6 +114,6 @@ class TranslationServiceProvider extends ServiceProvider
      */
     public function provides()
     {
-        return ['translator', 'translation.loader', 'command.translation.tables'];
+        return ['translator', 'translation.loader', 'command.translation.tables', 'command.translation.parse'];
     }
 }
