@@ -56,4 +56,19 @@ return array(
     |
     */
     'mark_missing' => true,
+
+    /*
+    |--------------------------------------------------------------------------
+    | Request locale source list
+    |--------------------------------------------------------------------------
+    |
+    | Where we can obtain request locale
+    |
+    */
+    'request_locale_sources' => [
+        'header',
+        'getParam',
+        'postParam',
+        'urlPrefix',
+    ],
 );
