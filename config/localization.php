@@ -71,4 +71,6 @@ return array(
         'postParam',
         'urlPrefix',
     ],
+
+    'enabled_locales' => [],
 );

@@ -69,7 +69,7 @@ class Localization
     protected function getLocaleSources()
     {
         $params = config('localization.request_locale_sources');
-        error_log(print_r($params, true));
+        //error_log(print_r($params, true));
         $sources = [];
         foreach ($params as $localeSource) {
             $localeSourceMethod = 'getLocaleFrom' . Str::ucfirst($localeSource);
